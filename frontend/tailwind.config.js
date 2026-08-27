@@ -1,27 +1,80 @@
+const { fontFamily } = require("tailwindcss/defaultTheme");
+
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
+  darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        ink: "#0f1c2e",
-        slate: {
-          panel: "#1a2b3f",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "#2dd4bf",
-          dim: "#0f766e",
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
-        warn: "#f59e0b",
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        signal: {
+          DEFAULT: "hsl(var(--signal))",
+          foreground: "hsl(var(--signal-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        display: ["\"IBM Plex Sans\"", "system-ui", "sans-serif"],
-        mono: ["\"IBM Plex Mono\"", "ui-monospace", "monospace"],
+        sans: ["\"Source Sans 3\"", ...fontFamily.sans],
+        display: ["Syne", "\"Source Sans 3\"", ...fontFamily.sans],
+        mono: ["\"IBM Plex Mono\"", ...fontFamily.mono],
       },
-      backgroundImage: {
-        mesh: "radial-gradient(ellipse at 20% 20%, rgba(45,212,191,0.18), transparent 50%), radial-gradient(ellipse at 80% 0%, rgba(59,130,246,0.15), transparent 45%), linear-gradient(160deg, #0b1524 0%, #122033 45%, #0f1c2e 100%)",
+      keyframes: {
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "header-line": {
+          from: { transform: "scaleX(0)" },
+          to: { transform: "scaleX(1)" },
+        },
+        "stagger-in": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.5s ease-out both",
+        "header-line": "header-line 0.7s ease-out both",
+        "stagger-in": "stagger-in 0.4s ease-out both",
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };

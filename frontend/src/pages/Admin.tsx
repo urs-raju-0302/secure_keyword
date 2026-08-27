@@ -1,12 +1,29 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
-import { Layout } from "../components/Layout";
-import { useAuth } from "../hooks/useAuth";
-import * as api from "../services/api";
+import { toast } from "sonner";
+import { Layout } from "@/components/Layout";
+import { PageHeader } from "@/components/PageHeader";
+import { useAuth } from "@/hooks/useAuth";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import * as api from "@/services/api";
 
 export function AdminPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const [confirmMaster, setConfirmMaster] = useState(false);
+
   const keys = useQuery({ queryKey: ["keys"], queryFn: api.keyStatus, enabled: user?.role === "ADMIN" });
   const audit = useQuery({ queryKey: ["audit"], queryFn: api.listAudit, enabled: user?.role === "ADMIN" });
 
@@ -15,18 +32,29 @@ export function AdminPage() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["keys"] });
       void qc.invalidateQueries({ queryKey: ["audit"] });
+      toast.success("Search key rotated and index rebuilt");
     },
+    onError: () => toast.error("Search key rotation failed"),
   });
+
   const rotateMaster = useMutation({
     mutationFn: api.rotateMasterKey,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["keys"] });
       void qc.invalidateQueries({ queryKey: ["audit"] });
+      setConfirmMaster(false);
+      toast.success("Master key version rotated; DEKs rewrapped");
     },
+    onError: () => toast.error("Master rotation failed"),
   });
+
   const reindex = useMutation({
     mutationFn: api.reindex,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["audit"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["audit"] });
+      toast.success("Reindex complete");
+    },
+    onError: () => toast.error("Reindex failed"),
   });
 
   if (user && user.role !== "ADMIN") {
@@ -35,81 +63,122 @@ export function AdminPage() {
 
   return (
     <Layout>
-      <div className="animate-fade-up space-y-8">
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Key management & audit</h1>
-          <p className="mt-2 text-slate-400">
-            Key material is never displayed. Rotation re-wraps DEKs or reindexes HMAC tokens under a new search-key
-            version.
-          </p>
-        </div>
+      <div className="page-enter">
+        <PageHeader
+          title="Administration"
+          description="Manage key versions and review audit events. Key material is never displayed."
+        />
 
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            className="rounded border border-accent/50 px-4 py-2 text-accent"
-            onClick={() => rotateSearch.mutate()}
-            disabled={rotateSearch.isPending}
-          >
-            Rotate search key + reindex
-          </button>
-          <button
-            type="button"
-            className="rounded border border-warn/50 px-4 py-2 text-warn"
-            onClick={() => rotateMaster.mutate()}
-            disabled={rotateMaster.isPending}
-          >
-            Rotate master version + rewrap
-          </button>
-          <button
-            type="button"
-            className="rounded border border-white/20 px-4 py-2"
-            onClick={() => reindex.mutate()}
-            disabled={reindex.isPending}
-          >
-            Reindex only
-          </button>
-        </div>
+        <Tabs defaultValue="keys">
+          <TabsList>
+            <TabsTrigger value="keys">Key versions</TabsTrigger>
+            <TabsTrigger value="audit">Audit</TabsTrigger>
+          </TabsList>
 
-        <section>
-          <h2 className="text-lg font-medium">Key versions</h2>
-          <div className="mt-3 overflow-x-auto rounded-xl border border-white/10">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-black/30 text-slate-400">
-                <tr>
-                  <th className="px-4 py-2">Type</th>
-                  <th className="px-4 py-2">Version</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Activated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.data?.keys.map((k) => (
-                  <tr key={`${k.key_type}-${k.version}`} className="border-t border-white/5">
-                    <td className="px-4 py-2 font-mono text-xs">{k.key_type}</td>
-                    <td className="px-4 py-2">{k.version}</td>
-                    <td className="px-4 py-2">{k.status}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{k.activated_at ?? "—"}</td>
-                  </tr>
+          <TabsContent value="keys" className="space-y-6">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-sm text-muted-foreground">
+                Rotation creates a new key version. Search rotation rebuilds the HMAC index; master rotation rewraps
+                document DEKs.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  disabled={rotateSearch.isPending}
+                  onClick={() => rotateSearch.mutate()}
+                >
+                  {rotateSearch.isPending ? "Rotating…" : "Rotate search key"}
+                </Button>
+                <Button variant="outline" disabled={reindex.isPending} onClick={() => reindex.mutate()}>
+                  {reindex.isPending ? "Reindexing…" : "Reindex only"}
+                </Button>
+                <Button variant="destructive" onClick={() => setConfirmMaster(true)}>
+                  Rotate master version
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Activated</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {keys.data?.keys.map((k) => (
+                    <TableRow key={`${k.key_type}-${k.version}`}>
+                      <TableCell className="font-mono text-xs">{k.key_type}</TableCell>
+                      <TableCell>{k.version}</TableCell>
+                      <TableCell>
+                        <Badge variant={k.status === "ACTIVE" ? "success" : "secondary"}>{k.status}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {k.activated_at ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!keys.data?.keys.length ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-muted-foreground">
+                        No key versions loaded.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <div className="max-h-[32rem] overflow-y-auto rounded-lg border border-border bg-card">
+              <ul>
+                {audit.data?.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 font-mono text-xs last:border-0"
+                  >
+                    <Badge variant={e.success ? "success" : "destructive"}>{e.action}</Badge>
+                    <span className="text-muted-foreground">
+                      {e.resource_type}/{e.resource_id}
+                    </span>
+                    <span className="ml-auto text-muted-foreground">{e.created_at}</span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-medium">Recent audit events</h2>
-          <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto rounded-xl border border-white/10 p-3">
-            {audit.data?.map((e) => (
-              <li key={e.id} className="flex flex-wrap gap-3 border-b border-white/5 py-2 font-mono text-xs">
-                <span className={e.success ? "text-accent" : "text-red-400"}>{e.action}</span>
-                <span className="text-slate-500">{e.resource_type}/{e.resource_id}</span>
-                <span className="text-slate-600">{e.created_at}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+                {!audit.data?.length ? (
+                  <li className="px-4 py-10 text-center text-sm text-muted-foreground">No audit events yet.</li>
+                ) : null}
+              </ul>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      <Dialog open={confirmMaster} onOpenChange={setConfirmMaster}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rotate master key version?</DialogTitle>
+            <DialogDescription>
+              This retires the active master version and rewraps all document DEKs. Search keys are unaffected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmMaster(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={rotateMaster.isPending}
+              onClick={() => rotateMaster.mutate()}
+            >
+              {rotateMaster.isPending ? "Rotating…" : "Confirm rotation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

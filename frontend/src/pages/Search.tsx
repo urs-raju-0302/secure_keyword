@@ -1,8 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Layout } from "../components/Layout";
-import * as api from "../services/api";
-import type { SearchResponse } from "../types";
+import { Info, Search } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { PageHeader } from "@/components/PageHeader";
+import { EncryptedBadge } from "@/components/EncryptedBadge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import * as api from "@/services/api";
+import type { SearchResponse } from "@/types";
 
 export function SearchPage() {
   const [keyword, setKeyword] = useState("");
@@ -26,46 +34,70 @@ export function SearchPage() {
 
   return (
     <Layout>
-      <div className="animate-fade-up">
-        <h1 className="font-display text-3xl font-semibold">Protected keyword search</h1>
-        <p className="mt-2 max-w-2xl text-slate-400">
-          Your keyword is normalized and converted to an HMAC-SHA-256 token before index lookup. The cloud index never
-          stores plaintext keywords. Repeated identical keywords produce linkable tokens (search-pattern leakage).
-        </p>
+      <div className="page-enter">
+        <PageHeader
+          title="Protected search"
+          description="Keywords are converted to HMAC tokens before index lookup. Only authorized documents are returned."
+          actions={<EncryptedBadge label="Tokenized query" />}
+        />
 
-        <form onSubmit={onSubmit} className="mt-6 flex flex-wrap gap-3">
-          <input
-            className="min-w-[240px] flex-1 rounded border border-white/15 bg-black/30 px-4 py-2"
-            placeholder="e.g. security"
+        <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            className="h-11 flex-1 bg-card text-base"
+            placeholder="Enter a keyword"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             required
           />
-          <button type="submit" className="rounded bg-accent px-5 py-2 font-medium text-ink" disabled={pending}>
+          <Button type="submit" size="lg" disabled={pending} className="sm:min-w-[140px]">
+            <Search className="h-4 w-4" />
             {pending ? "Searching…" : "Search"}
-          </button>
+          </Button>
         </form>
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
 
-        {result && (
+        {error ? (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {result ? (
           <div className="mt-8 space-y-4">
-            <p className="font-mono text-xs text-slate-400">
-              Results: {result.result_count} · normalized length: {result.keyword_normalized_length}
-            </p>
-            <p className="text-sm text-warn">{result.note}</p>
-            <ul className="divide-y divide-white/10 rounded-xl border border-white/10">
-              {result.documents.map((d) => (
-                <li key={d.id} className="flex items-center justify-between px-4 py-3">
-                  <Link to={`/documents/${d.id}`} className="text-accent hover:underline">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <span>
+                <span className="font-medium text-foreground">{result.result_count}</span> authorized result
+                {result.result_count === 1 ? "" : "s"}
+              </span>
+              <Separator orientation="vertical" className="hidden h-4 sm:block" />
+              <span className="font-mono text-xs">normalized length {result.keyword_normalized_length}</span>
+            </div>
+
+            <Alert variant="muted">
+              <Info className="h-4 w-4" />
+              <AlertDescription>{result.note}</AlertDescription>
+            </Alert>
+
+            <ul className="overflow-hidden rounded-lg border border-border bg-card">
+              {result.documents.map((d, i) => (
+                <li
+                  key={d.id}
+                  className="result-row flex items-center justify-between gap-4 border-b border-border px-4 py-3 last:border-0"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <Link to={`/documents/${d.id}`} className="font-medium text-primary hover:underline">
                     {d.original_filename}
                   </Link>
-                  <span className="font-mono text-xs text-slate-500">{d.encryption_algorithm}</span>
+                  <Badge variant="outline" className="font-mono text-[11px]">
+                    {d.encryption_algorithm}
+                  </Badge>
                 </li>
               ))}
-              {result.documents.length === 0 && <li className="px-4 py-6 text-slate-500">No authorized matches.</li>}
+              {result.documents.length === 0 ? (
+                <li className="px-4 py-10 text-center text-muted-foreground">No authorized matches.</li>
+              ) : null}
             </ul>
           </div>
-        )}
+        ) : null}
       </div>
     </Layout>
   );

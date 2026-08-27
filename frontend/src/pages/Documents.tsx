@@ -1,91 +1,139 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Layout } from "../components/Layout";
-import * as api from "../services/api";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { Layout } from "@/components/Layout";
+import { Dropzone } from "@/components/Dropzone";
+import { PageHeader } from "@/components/PageHeader";
+import { EncryptedBadge } from "@/components/EncryptedBadge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import * as api from "@/services/api";
 
 export function DocumentsPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["documents"], queryFn: api.listDocuments });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
   const upload = useMutation({
     mutationFn: (file: File) => api.uploadDocument(file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+      toast.success("Document encrypted and uploaded");
+    },
+    onError: () => toast.error("Upload failed"),
   });
+
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteDocument(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+      setDeleteId(null);
+      toast.success("Document deleted");
+    },
+    onError: () => toast.error("Delete failed"),
   });
 
   return (
     <Layout>
-      <div className="animate-fade-up">
-        <h1 className="font-display text-3xl font-semibold">Encrypted documents</h1>
-        <p className="mt-2 text-slate-400">Uploaded files are encrypted client-side-of-storage (AES-256-GCM) before MinIO/S3.</p>
+      <div className="page-enter">
+        <PageHeader
+          title="Documents"
+          description="Files are encrypted with a unique DEK before they reach object storage."
+          actions={<EncryptedBadge />}
+        />
 
-        <label className="mt-6 inline-flex cursor-pointer items-center gap-3 rounded border border-dashed border-accent/40 px-4 py-3 text-sm text-accent">
-          <input
-            type="file"
-            className="hidden"
-            accept=".txt,.md,.json,.pdf,text/plain,text/markdown,application/json,application/pdf"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload.mutate(f);
-            }}
-          />
-          {upload.isPending ? "Encrypting & uploading…" : "Upload file"}
-        </label>
-        {upload.isError && <p className="mt-2 text-sm text-red-400">Upload failed</p>}
+        <Dropzone
+          pending={upload.isPending}
+          accept=".txt,.md,.json,.pdf,text/plain,text/markdown,application/json,application/pdf"
+          onFile={(file) => upload.mutate(file)}
+        />
 
-        <div className="mt-8 overflow-x-auto rounded-xl border border-white/10">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-black/30 text-slate-400">
-              <tr>
-                <th className="px-4 py-3">Filename</th>
-                <th className="px-4 py-3">Algorithm</th>
-                <th className="px-4 py-3">KEK ver</th>
-                <th className="px-4 py-3">Size</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && (
-                <tr>
-                  <td className="px-4 py-4" colSpan={5}>
+        <div className="mt-8 overflow-hidden rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Filename</TableHead>
+                <TableHead>Algorithm</TableHead>
+                <TableHead>KEK ver</TableHead>
+                <TableHead>Size</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-muted-foreground">
                     Loading…
-                  </td>
-                </tr>
-              )}
+                  </TableCell>
+                </TableRow>
+              ) : null}
               {data?.map((d) => (
-                <tr key={d.id} className="border-t border-white/5">
-                  <td className="px-4 py-3">
-                    <Link className="text-accent hover:underline" to={`/documents/${d.id}`}>
+                <TableRow key={d.id}>
+                  <TableCell>
+                    <Link className="font-medium text-primary hover:underline" to={`/documents/${d.id}`}>
                       {d.original_filename}
                     </Link>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">{d.encryption_algorithm}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{d.dek_key_version}</td>
-                  <td className="px-4 py-3">{d.size_bytes} B</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="text-red-300 hover:text-red-200"
-                      onClick={() => remove.mutate(d.id)}
-                    >
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono text-[11px]">
+                      {d.encryption_algorithm}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{d.dek_key_version}</TableCell>
+                  <TableCell className="text-muted-foreground">{d.size_bytes} B</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeleteId(d.id)}>
+                      <Trash2 className="h-4 w-4" />
                       Delete
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-              {!isLoading && data?.length === 0 && (
-                <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={5}>
-                    No documents yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              {!isLoading && data?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    No documents yet. Upload a file to get started.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
         </div>
       </div>
+
+      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete document?</DialogTitle>
+            <DialogDescription>
+              This removes ciphertext, metadata, and search-index entries. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteId || remove.isPending}
+              onClick={() => deleteId && remove.mutate(deleteId)}
+            >
+              {remove.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

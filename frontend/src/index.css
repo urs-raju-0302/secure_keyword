@@ -2,45 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
-  background-image: radial-gradient(ellipse at 20% 20%, rgba(45, 212, 191, 0.18), transparent 50%),
-    radial-gradient(ellipse at 80% 0%, rgba(59, 130, 246, 0.15), transparent 45%),
-    linear-gradient(160deg, #0b1524 0%, #122033 45%, #0f1c2e 100%);
-  background-attachment: fixed;
-}
-
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
+@layer base {
+  :root {
+    --background: 210 20% 97%;
+    --foreground: 220 40% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 8%;
+    --primary: 205 78% 20%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 16% 93%;
+    --secondary-foreground: 220 30% 16%;
+    --muted: 210 16% 93%;
+    --muted-foreground: 215 14% 42%;
+    --accent: 210 18% 94%;
+    --accent-foreground: 220 40% 10%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 18% 86%;
+    --input: 214 18% 86%;
+    --ring: 205 78% 28%;
+    --signal: 158 56% 28%;
+    --signal-foreground: 152 40% 96%;
+    --radius: 0.5rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Source Sans 3", system-ui, sans-serif;
+    min-height: 100vh;
+    background-image:
+      linear-gradient(180deg, hsl(210 24% 98%) 0%, hsl(210 20% 96%) 100%),
+      linear-gradient(rgba(11, 58, 91, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11, 58, 91, 0.035) 1px, transparent 1px);
+    background-size: auto, 28px 28px, 28px 28px;
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: Syne, "Source Sans 3", system-ui, sans-serif;
   }
 }
 
-@keyframes pulse-line {
-  0%,
-  100% {
-    opacity: 0.35;
+@layer utilities {
+  .page-enter {
+    @apply animate-fade-up;
   }
-  50% {
-    opacity: 1;
+
+  .result-row {
+    animation: stagger-in 0.4s ease-out both;
   }
-}
-
-.animate-fade-up {
-  animation: fade-up 0.55s ease-out both;
-}
-
-.animate-pulse-line {
-  animation: pulse-line 2.4s ease-in-out infinite;
 }
